@@ -1,5 +1,6 @@
 
 # Rotating Shooter Gamer
+![image](https://github.com/user-attachments/assets/2d16ebac-6d47-41db-adde-49775e4c015e)
 
 Este é um jogo simples em JavaScript, jogado diretamente no navegador.
 
