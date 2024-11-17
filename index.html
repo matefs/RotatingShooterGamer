@@ -1,0 +1,234 @@
+<!-- File: index.html -->
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mario Kart com JavaScript</title>
+    <style>
+        /* Centraliza o canvas no centro da tela */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #87CEEB; /* Azul claro para o céu */
+        }
+    </style>
+</head>
+<body>
+    <!-- Canvas onde o jogo será renderizado -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Importa o script do jogo --> 
+</body>
+</html>
+<script>
+// File: fixed_obstacle_vertical_map_with_rotation_and_shooting_game.js
+
+// Obter o contexto do canvas e configurar o cenário do jogo
+const canvas = document.getElementById('gameCanvas');
+const context = canvas.getContext('2d');
+
+// Configurar o tamanho do canvas e do mapa
+canvas.width = 800;
+canvas.height = 600;
+const mapWidth = 800;
+const mapHeight = 5000; // Altura grande para simular um mapa extenso
+
+// Carregar o sprite do character
+const characterSprite = new Image();
+characterSprite.src = 'https://opengameart.org/sites/default/files/styles/medium/public/super%20chonkerdoge%20kart.gif';
+
+// Variáveis do jogo
+let characterX = mapWidth / 2;
+let characterY = mapHeight - 200; // Inicializa o character próximo ao final do mapa
+let characterSpeed = 5;
+let characterAngle = 0; // Ângulo inicial do character em radianos
+let score = 0;
+let gameOver = false;
+
+// Tamanho da câmera
+let cameraX = 0;
+let cameraY = mapHeight - canvas.height; // Inicializa a câmera no fim do mapa
+
+// Controle de teclas pressionadas
+let keys = {
+    ArrowUp: false,
+    ArrowDown: false,
+    ArrowLeft: false,
+    ArrowRight: false,
+    Space: false // Tecla para disparar projéteis
+};
+
+// Adicionar eventos para controle do character e disparo
+document.addEventListener('keydown', (event) => {
+    if (event.key === ' ') keys.Space = true; // Atira ao pressionar espaço
+    if (event.key in keys) keys[event.key] = true;
+});
+document.addEventListener('keyup', (event) => {
+    if (event.key === ' ') keys.Space = false;
+    if (event.key in keys) keys[event.key] = false;
+});
+
+// Gerar obstáculos fixos no mapa
+const obstacles = [];
+function generateFixedObstacles() {
+    for (let i = 0; i < 100; i++) { // 100 obstáculos fixos ao longo do mapa
+        const obstacle = {
+            x: Math.random() * (mapWidth - 50),
+            y: Math.random() * mapHeight,
+            width: 50,
+            height: 50,
+            destroyed: false // Marcador para obstáculos destruídos
+        };
+        obstacles.push(obstacle);
+    }
+}
+
+// Gerenciar projéteis
+const projectiles = [];
+let lastShotTime = 0;
+function shootProjectile() {
+    const now = Date.now();
+    if (now - lastShotTime < 300) return; // Intervalo de disparo (300 ms)
+    lastShotTime = now;
+    
+    const projectile = {
+        x: characterX,
+        y: characterY,
+        angle: characterAngle, // Projétil segue o ângulo atual do character
+        width: 5,
+        height: 10,
+        speed: 10
+    };
+    projectiles.push(projectile);
+}
+
+// Função para atualizar o jogo
+function update() {
+    if (gameOver) return;
+
+    // Disparar projétil continuamente ao segurar a barra de espaço
+    if (keys.Space) {
+        shootProjectile();
+    }
+
+    // Rotacionar o character
+    if (keys.ArrowLeft) {
+        characterAngle -= 0.05; // Gira para a esquerda
+    }
+    if (keys.ArrowRight) {
+        characterAngle += 0.05; // Gira para a direita
+    }
+
+    // Movimentar o character para frente ou para trás baseado no ângulo
+    if (keys.ArrowUp) {
+        characterX += characterSpeed * Math.cos(characterAngle);
+        characterY += characterSpeed * Math.sin(characterAngle);
+        cameraY += characterSpeed * Math.sin(characterAngle); // Acompanhar o movimento vertical da câmera
+    }
+    if (keys.ArrowDown) {
+        characterX -= characterSpeed * Math.cos(characterAngle);
+        characterY -= characterSpeed * Math.sin(characterAngle);
+        cameraY -= characterSpeed * Math.sin(characterAngle); // Acompanhar o movimento vertical da câmera
+    }
+
+    // Limitar a câmera para que não vá além dos limites do mapa
+    if (cameraY < 0) cameraY = 0;
+    if (cameraY > mapHeight - canvas.height) cameraY = mapHeight - canvas.height;
+
+    // Atualizar a posição dos projéteis
+    projectiles.forEach((projectile, index) => {
+        projectile.x += projectile.speed * Math.cos(projectile.angle);
+        projectile.y += projectile.speed * Math.sin(projectile.angle);
+
+        // Remover projéteis que saem da tela
+        if (projectile.y < cameraY || projectile.y > cameraY + canvas.height) {
+            projectiles.splice(index, 1);
+        }
+    });
+
+    // Limpar o canvas e desenhar o cenário do jogo
+    context.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Desenhar os obstáculos com base na posição fixa no mapa
+    context.fillStyle = 'red';
+    obstacles.forEach((obstacle, index) => {
+        if (obstacle.destroyed) return; // Pular obstáculos destruídos
+        const obstacleScreenX = obstacle.x;
+        const obstacleScreenY = obstacle.y - cameraY;
+
+        // Desenhar somente os obstáculos visíveis na tela
+        if (
+            obstacleScreenX + obstacle.width > 0 &&
+            obstacleScreenX < canvas.width &&
+            obstacleScreenY + obstacle.height > 0 &&
+            obstacleScreenY < canvas.height
+        ) {
+            context.fillRect(obstacleScreenX, obstacleScreenY, obstacle.width, obstacle.height);
+
+            // Checar colisão com o character
+            if (
+                characterX < obstacle.x + obstacle.width &&
+                characterX + characterSprite.width / 2 > obstacle.x &&
+                characterY < obstacle.y + obstacle.height &&
+                characterY + characterSprite.height / 2 > obstacle.y
+            ) {
+                gameOver = true;
+                alert(`Game Over! Sua pontuação: ${score}`);
+            }
+
+            // Checar colisão com projéteis
+            projectiles.forEach((projectile, pIndex) => {
+                if (
+                    projectile.x < obstacle.x + obstacle.width &&
+                    projectile.x + projectile.width > obstacle.x &&
+                    projectile.y < obstacle.y + obstacle.height &&
+                    projectile.y + projectile.height > obstacle.y
+                ) {
+                    // Marcar o obstáculo como destruído e remover o projétil
+                    obstacle.destroyed = true;
+                    projectiles.splice(pIndex, 1);
+                    score += 10; // Incrementar a pontuação ao destruir obstáculo
+                }
+            });
+        }
+    });
+
+    // Desenhar o character na tela centralizado com a câmera
+    const characterScreenX = characterX;
+    const characterScreenY = characterY - cameraY;
+    context.save();
+    context.translate(characterScreenX, characterScreenY);
+    context.rotate(characterAngle);
+    context.drawImage(characterSprite, -characterSprite.width / 2, -characterSprite.height / 2);
+    context.restore();
+
+    // Desenhar os projéteis
+    context.fillStyle = 'blue';
+    projectiles.forEach(projectile => {
+        const projectileScreenX = projectile.x;
+        const projectileScreenY = projectile.y - cameraY;
+        context.fillRect(projectileScreenX, projectileScreenY, projectile.width, projectile.height);
+    });
+
+    // Mostrar pontuação
+    context.fillStyle = 'black';
+    context.font = '20px Arial';
+    context.fillText(`Score: ${score}`, 10, 30);
+
+    // Chamar a função de atualização continuamente
+    requestAnimationFrame(update);
+}
+
+// Iniciar o jogo após o carregamento do sprite
+characterSprite.onload = () => {
+    generateFixedObstacles(); // Gera obstáculos fixos
+    update();
+};
+
+
+</script>
